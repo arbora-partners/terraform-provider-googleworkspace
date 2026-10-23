@@ -18,6 +18,7 @@ import (
 	directory "google.golang.org/api/admin/directory/v1"
 	"google.golang.org/api/chromepolicy/v1"
 	"google.golang.org/api/cloudidentity/v1"
+	"google.golang.org/api/drive/v3"
 	"google.golang.org/api/gmail/v1"
 	"google.golang.org/api/groupssettings/v1"
 	"google.golang.org/api/impersonate"
@@ -190,6 +191,28 @@ func (c *apiClient) NewDirectoryService() (*directory.Service, diag.Diagnostics)
 	}
 
 	return directoryService, diags
+}
+
+func (c *apiClient) NewDriveService() (*drive.Service, diag.Diagnostics) {
+	var diags diag.Diagnostics
+
+	log.Printf("[INFO] Instantiating Google Drive service")
+
+	driveService, err := drive.NewService(context.Background(), option.WithHTTPClient(c.client))
+	if err != nil {
+		return nil, diag.FromErr(err)
+	}
+
+	if driveService == nil {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "Drive Service could not be created.",
+		})
+
+		return nil, diags
+	}
+
+	return driveService, diags
 }
 
 func (c *apiClient) NewGmailService(ctx context.Context, userId string) (*gmail.Service, diag.Diagnostics) {
