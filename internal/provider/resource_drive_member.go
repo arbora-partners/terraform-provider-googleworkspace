@@ -171,13 +171,18 @@ func resourceDriveMemberRead(ctx context.Context, d *schema.ResourceData, meta i
 
 	// A permission that no longer names the declared principal is not this
 	// membership: recreate rather than silently follow whatever the id points
-	// at now.
-	if email := d.Get("email").(string); email != "" && permission.EmailAddress != email {
+	// at now. A domain-admin read-back omits emailAddress entirely (measured
+	// on #592: the create's response carries it, useDomainAdminAccess reads
+	// do not), so the guard and the state both keep the declared address when
+	// the API returns none.
+	if email := d.Get("email").(string); email != "" && permission.EmailAddress != "" && permission.EmailAddress != email {
 		return diag.FromErr(fmt.Errorf("Drive Member %s in drive %s is %q, not the declared %q",
 			permissionId, driveId, permission.EmailAddress, email))
 	}
 
-	d.Set("email", permission.EmailAddress)
+	if permission.EmailAddress != "" {
+		d.Set("email", permission.EmailAddress)
+	}
 	d.Set("role", permission.Role)
 	d.Set("type", permission.Type)
 
