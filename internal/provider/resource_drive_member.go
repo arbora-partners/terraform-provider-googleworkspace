@@ -248,13 +248,19 @@ func resourceDriveMemberDelete(ctx context.Context, d *schema.ResourceData, meta
 func resourceDriveMemberImport(ctx context.Context, d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
 	parts := strings.Split(d.Id(), "/")
 
-	// id is of format "drives/<drive_id>/permissions/<permission_id>"
-	if len(parts) != 4 {
-		return nil, fmt.Errorf("Drive Member Id (%s) is not of the correct format (drives/<drive_id>/permissions/<permission_id>)", d.Id())
+	// id is of format "drives/<drive_id>/permissions/<permission_id>[/<email>]".
+	// The email is what the declaration holds and the domain-admin read never
+	// returns (measured on #592), so an import without it lands in state with
+	// no email — and the declared one then plans a replace. Name it.
+	if len(parts) != 4 && len(parts) != 5 {
+		return nil, fmt.Errorf("Drive Member Id (%s) is not of the correct format (drives/<drive_id>/permissions/<permission_id>[/<email>])", d.Id())
 	}
 
 	d.Set("drive_id", parts[1])
 	d.Set("member_id", parts[3])
+	if len(parts) == 5 {
+		d.Set("email", parts[4])
+	}
 
 	return []*schema.ResourceData{d}, nil
 }
