@@ -23,17 +23,21 @@ import (
 // membership is a Drive concept, with its own roles (organizer, fileOrganizer,
 // writer, commenter, reader) that the Directory API cannot express.
 //
-// The caller needs the `https://www.googleapis.com/auth/drive` scope and
-// organizer (Manager) standing on the drive — the one Google offers no
-// domain-admin API to grant — or the Drive and Docs administrator privilege
-// with useDomainAdminAccess, which this resource deliberately does not set:
-// per-drive organizer standing is the narrower shape.
+// The caller needs the `https://www.googleapis.com/auth/drive` scope and the
+// Drive and Docs administrator privilege (a custom Workspace admin role
+// carries it; a service account may hold that, like Groups). Every call
+// passes `useDomainAdminAccess`, so the caller needs no membership of its
+// own: a read-only role reads the membership, a full one reverts its drift,
+// each exactly as the admin console's "Manage shared drives" page does. The
+// privilege is service administration — settings and membership — never
+// content: no files are read here.
 func resourceDriveMember() *schema.Resource {
 	return &schema.Resource{
 		Description: "Drive Member resource manages the membership of a Google shared drive: one member " +
 			"(a user, a group or a service account) holding one role. It resides under the " +
-			"`https://www.googleapis.com/auth/drive` client scope, and the caller must be an organizer " +
-			"(Manager) of the shared drive.",
+			"`https://www.googleapis.com/auth/drive` client scope, and the caller must hold the Drive and " +
+			"Docs administrator privilege: every call passes useDomainAdminAccess, so no membership of " +
+			"the drive itself is required.",
 
 		CreateContext: resourceDriveMemberCreate,
 		ReadContext:   resourceDriveMemberRead,
@@ -129,6 +133,7 @@ func resourceDriveMemberCreate(ctx context.Context, d *schema.ResourceData, meta
 	permission, err := driveService.Permissions.
 		Create(driveId, &permissionObj).
 		SupportsAllDrives(true).
+		UseDomainAdminAccess(true).
 		SendNotificationEmail(false).
 		Do()
 	if err != nil {
@@ -158,6 +163,7 @@ func resourceDriveMemberRead(ctx context.Context, d *schema.ResourceData, meta i
 	permission, err := driveService.Permissions.
 		Get(driveId, permissionId).
 		SupportsAllDrives(true).
+		UseDomainAdminAccess(true).
 		Do()
 	if err != nil {
 		return handleNotFoundError(err, d, fmt.Sprintf("Drive Member %s in drive %s", permissionId, driveId))
@@ -198,6 +204,7 @@ func resourceDriveMemberUpdate(ctx context.Context, d *schema.ResourceData, meta
 		if _, err := driveService.Permissions.
 			Update(driveId, permissionId, &permissionObj).
 			SupportsAllDrives(true).
+			UseDomainAdminAccess(true).
 			Do(); err != nil {
 			return diag.FromErr(fmt.Errorf("updating Drive Member %s in drive %s: %w", permissionId, driveId, err))
 		}
@@ -223,6 +230,7 @@ func resourceDriveMemberDelete(ctx context.Context, d *schema.ResourceData, meta
 	if err := driveService.Permissions.
 		Delete(driveId, permissionId).
 		SupportsAllDrives(true).
+		UseDomainAdminAccess(true).
 		Do(); err != nil && !isNotFound(err) {
 		return diag.FromErr(fmt.Errorf("deleting Drive Member %s in drive %s: %w", permissionId, driveId, err))
 	}
